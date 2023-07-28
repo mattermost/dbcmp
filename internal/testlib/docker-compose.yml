@@ -9,6 +9,11 @@ services:
       POSTGRES_PASSWORD: sspw
       POSTGRES_DB: dbcmp_test
       POSTGRES_USER: pguser
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-h", "localhost" ]
+      interval: 5s
+      timeout: 10s
+      retries: 3
   mysql:
     image: "mysql:5.7"
     restart: always
@@ -20,3 +25,8 @@ services:
       MYSQL_USER: mysqluser
       MYSQL_PASSWORD: sspw
       MYSQL_ROOT_PASSWORD: sspw
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
