@@ -197,9 +197,6 @@ func (db *DB) checksum(table *TableInfo) ([]uint, error) {
 		return nil, fmt.Errorf("could not execute template: %w", err)
 	}
 
-	// if strings.ToLower(q.TableName) == "pluginkeyvaluestore" {
-	// 	fmt.Println(out.String())
-	// }
 	var v = []struct {
 		A uint `db:"a"`
 		B uint `db:"b"`
