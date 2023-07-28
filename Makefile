@@ -5,8 +5,8 @@ test: run-databases
 
 run-databases:
 	@echo Starting docker containers
-	docker-compose -f internal/testing/docker-compose.yml --project-name dbcmp up --no-recreate -d
+	docker-compose -f internal/testlib/docker-compose.yml --project-name dbcmp up --no-recreate -d
 
 stop-databases:
 	@echo Stopping docker containers
-	docker-compose -f internal/testing/docker-compose.yml --project-name dbcmp down
+	docker-compose -f internal/testlib/docker-compose.yml --project-name dbcmp down

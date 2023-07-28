@@ -62,6 +62,14 @@ func NewDB(dsn string) (*DB, error) {
 	}, nil
 }
 
+func (db *DB) Close() error {
+	if db.sqlDB != nil {
+		return nil
+	}
+
+	return db.sqlDB.Close()
+}
+
 func (db *DB) TableList() (map[string]*TableInfo, error) {
 	tables := []string{}
 	switch db.dbType {
