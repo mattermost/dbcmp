@@ -17,46 +17,78 @@ const (
 // It contains all the necessary information to run tests for all drivers.
 // It also provides helper functions to create dummy migrations.
 type testHelper struct {
+	t           *testing.T
 	dbInstances map[string]*DB
 }
 
 func newTestHelper(t *testing.T) *testHelper {
 	helper := &testHelper{
+		t:           t,
 		dbInstances: map[string]*DB{},
 	}
 
-	helper.initializeInstances(t)
+	helper.initializeInstances()
 
 	return helper
 }
 
-func (h *testHelper) initializeInstances(t *testing.T) {
+func (h *testHelper) initializeInstances() {
 	// mysql
 	db, err := NewDB(mysqlTestDSN)
-	require.NoError(t, err)
+	require.NoError(h.t, err)
 
 	h.dbInstances["mysql"] = db
 
 	// postgres
 	db2, err := NewDB(pgsqlTestDSN)
-	require.NoError(t, err)
+	require.NoError(h.t, err)
 
 	h.dbInstances["postgres"] = db2
+
+	assets := testlib.Assets()
+	for name, instance := range h.dbInstances {
+		b, err := assets.ReadFile(filepath.Join("sql", name, "init.sql"))
+		require.NoError(h.t, err)
+		_, err = instance.sqlDB.Query(string(b))
+		require.NoError(h.t, err)
+	}
+}
+
+// creates 3 new migrations
+func (h *testHelper) SeedTableData() *testHelper {
+	for name, instance := range h.dbInstances {
+		s1 := testStruct1{
+			Id:          newId(),
+			CreateAt:    nowMillis(),
+			Name:        randomName(),
+			Description: randomSentence(),
+		}
+
+		query := `INSERT INTO Table1
+		(Id, CreateAt, Name, Description)
+		VALUES
+		(:Id, :CreateAt, :Name, :Description)
+		`
+		_, err := instance.sqlDB.NamedExec(query, s1)
+		require.NoError(h.t, err, "could not insert on %q", name)
+	}
+
+	return h
 }
 
 // TearDown closes all database connections and removes all tables from the databases
-func (h *testHelper) Teardown(t *testing.T) {
+func (h *testHelper) Teardown() {
 	assets := testlib.Assets()
 	for name, instance := range h.dbInstances {
 		b, err := assets.ReadFile(filepath.Join("sql", name, "drop.sql"))
-		require.NoError(t, err)
+		require.NoError(h.t, err)
 		_, err = instance.sqlDB.Query(string(b))
-		require.NoError(t, err)
+		require.NoError(h.t, err)
 	}
 
 	for _, instance := range h.dbInstances {
 		err := instance.Close()
-		require.NoError(t, err)
+		require.NoError(h.t, err)
 	}
 }
 
