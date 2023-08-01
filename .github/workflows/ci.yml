@@ -1,0 +1,73 @@
+name: dbcmp CI
+on:
+  pull_request:
+  push:
+      branches:
+        - main
+        - ci*
+
+env:
+  go-version: "1.19.5"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+      - name: Setup Go
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
+        with:
+          go-version: ${{ env.go-version }}
+          cache: false
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@639cd343e1d3b897ff35927a75193d57cfcba299 # 3.6.0
+        with:
+          version: v1.53
+
+  test:
+    name: Test
+    runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: sspw 
+          POSTGRES_DB: dbcmp_test
+          POSTGRES_USER: pguser
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5442:5432
+      mysql:
+        image: "mysql:5.7"
+        env:
+          MYSQL_DATABASE: dbcmp_test
+          MYSQL_USER: mysqluser
+          MYSQL_PASSWORD: sspw
+          MYSQL_ROOT_PASSWORD: sspw
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+        ports:
+          - 3316:3306
+    steps:
+    - name: Checkout project
+      uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
+    - name: Setup Go
+      uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9 # v4.0.0
+      with:
+          go-version: ${{ env.go-version }}
+    - name: Run Tests
+      run: |
+        go get -d -t ./...
+        go test -v -cover ./...
