@@ -1,9 +1,11 @@
 package store
 
 import (
+	"math/rand"
 	"path/filepath"
 	"testing"
 
+	"github.com/brianvoe/gofakeit/v6"
 	"github.com/isacikgoz/dbcmp/internal/testlib"
 	"github.com/stretchr/testify/require"
 )
@@ -54,23 +56,40 @@ func (h *testHelper) initializeInstances() {
 	}
 }
 
-// creates 3 new migrations
-func (h *testHelper) SeedTableData() *testHelper {
-	for name, instance := range h.dbInstances {
-		s1 := testStruct1{
-			Id:          newId(),
-			CreateAt:    nowMillis(),
-			Name:        randomName(),
-			Description: randomSentence(),
-		}
+// SeedTableData randomly generates table data
+func (h *testHelper) SeedTableData(entryCount int) *testHelper {
+	for i := 0; i < entryCount; i++ {
+		wc := rand.Intn(50)
+		for name, instance := range h.dbInstances {
+			s1 := testStruct1{
+				Id:          newId(),
+				CreateAt:    gofakeit.Int64(),
+				Name:        gofakeit.Name(),
+				Description: gofakeit.Sentence(wc),
+			}
 
-		query := `INSERT INTO Table1
-		(Id, CreateAt, Name, Description)
-		VALUES
-		(:Id, :CreateAt, :Name, :Description)
-		`
-		_, err := instance.sqlDB.NamedExec(query, s1)
-		require.NoError(h.t, err, "could not insert on %q", name)
+			query := `INSERT INTO Table1
+			(Id, CreateAt, Name, Description)
+			VALUES
+			(:Id, :CreateAt, :Name, :Description)
+			`
+			_, err := instance.sqlDB.NamedExec(query, s1)
+			require.NoError(h.t, err, "could not insert s1 on %q", name)
+
+			s2 := testStruct2{
+				Id:       newId(),
+				IsActive: gofakeit.Bool(),
+				Props:    gofakeit.Map(),
+			}
+
+			query = `INSERT INTO Table2
+			(Id, IsActive, Props)
+			VALUES
+			(:Id, :IsActive, :Props)
+			`
+			_, err = instance.sqlDB.NamedExec(query, s2)
+			require.NoError(h.t, err, "could not insert s2 on %q", name)
+		}
 	}
 
 	return h

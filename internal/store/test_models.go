@@ -2,8 +2,15 @@ package store
 
 import (
 	"database/sql/driver"
+	"encoding/base32"
 	"encoding/json"
 	"errors"
+
+	"github.com/pborman/uuid"
+)
+
+var (
+	encoding = base32.NewEncoding("ybndrfg8ejkmcpqxot1uwisza345h769").WithPadding(base32.NoPadding)
 )
 
 type testStruct1 struct {
@@ -14,10 +21,9 @@ type testStruct1 struct {
 }
 
 type testStruct2 struct {
-	Id          string
-	IsActive    bool
-	Props       stringInterface
-	Description string
+	Id       string          `db:"Id"`
+	IsActive bool            `db:"IsActive"`
+	Props    stringInterface `db:"Props"`
 }
 
 type stringInterface map[string]any
@@ -49,4 +55,9 @@ func (si stringInterface) Value() (driver.Value, error) {
 
 	// non utf8 characters are not supported https://mattermost.atlassian.net/browse/MM-41066
 	return string(j), err
+}
+
+// newId creates a unique identifier
+func newId() string {
+	return encoding.EncodeToString(uuid.NewRandom())
 }

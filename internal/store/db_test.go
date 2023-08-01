@@ -1,18 +1,52 @@
 package store
 
 import (
+	"math/rand"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
+	"github.com/stretchr/testify/require"
 )
 
-func TestNewDB(t *testing.T) {
-	h := newTestHelper(t)
+func TestTableList(t *testing.T) {
+	ec := rand.Intn(100)
+	h := newTestHelper(t).SeedTableData(ec)
 	defer h.Teardown()
+
+	h.RunForAllDrivers(t, func(t *testing.T, db *DB) {
+		tables, err := db.TableList()
+		require.NoError(t, err)
+		require.Len(t, tables, 2)
+	})
 }
 
-func TestTableList(t *testing.T) {
-	h := newTestHelper(t).SeedTableData()
+func TestTableCount(t *testing.T) {
+	ec := rand.Intn(100)
+	h := newTestHelper(t).SeedTableData(ec)
 	defer h.Teardown()
+
+	h.RunForAllDrivers(t, func(t *testing.T, db *DB) {
+		tables, err := db.TableList()
+		require.NoError(t, err)
+
+		c, err := db.count(tables["table1"])
+		require.NoError(t, err)
+		require.Equal(t, ec, c)
+	})
+}
+
+func TestCheksum(t *testing.T) {
+	ec := rand.Intn(100)
+	h := newTestHelper(t).SeedTableData(ec)
+	defer h.Teardown()
+
+	h.RunForAllDrivers(t, func(t *testing.T, db *DB) {
+		tables, err := db.TableList()
+		require.NoError(t, err)
+
+		sum, err := db.checksum(tables["table1"])
+		require.NoError(t, err)
+		require.Len(t, sum, 4)
+	})
 }
