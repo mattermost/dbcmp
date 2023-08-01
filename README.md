@@ -27,13 +27,13 @@ Introducing `dbcmp` - Your Command Line Database Content Comparison Tool
 3. To perform a basic comparison between two databases, use the following command:
 
    ```sh
-   dbcmp source_dsn target_dsn
+   dbcmp --source source_dsn --target target_dsn
    ```
 
-4. If you wish to compare specific tables, you can use the `--tables` option:
+4. If you wish to exclude specific tables, you can use the `--exclude` option:
 
    ```sh
-   dbcmp --source=source_dsn --target=target_dsn --tables=table1,table2
+   dbcmp --source source_dsn --target target_dsn --exclude=table1,table2
    ```
 
 Now you have the power to compare database content effortlessly with dbcmp. Happy comparing!
