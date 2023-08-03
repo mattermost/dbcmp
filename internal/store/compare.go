@@ -2,7 +2,6 @@ package store
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -79,7 +78,8 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 			return nil, fmt.Errorf("could not compute checksum: %w", err)
 		}
 
-		if !reflect.DeepEqual(srcCheksum, dstChecksum) {
+		if srcCheksum != dstChecksum {
+			mismatchs = append(mismatchs, v.TableName)
 			continue
 		}
 	}

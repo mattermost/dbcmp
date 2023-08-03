@@ -60,14 +60,21 @@ func (h *testHelper) initializeInstances() {
 func (h *testHelper) SeedTableData(entryCount int) *testHelper {
 	for i := 0; i < entryCount; i++ {
 		wc := rand.Intn(50)
-		for name, instance := range h.dbInstances {
-			s1 := testStruct1{
-				Id:          newId(),
-				CreateAt:    gofakeit.Int64(),
-				Name:        gofakeit.Name(),
-				Description: gofakeit.Sentence(wc),
-			}
 
+		s1 := testStruct1{
+			Id:          newId(),
+			CreateAt:    gofakeit.Int64(),
+			Name:        gofakeit.Name(),
+			Description: gofakeit.Sentence(wc),
+		}
+
+		s2 := testStruct2{
+			Id:       newId(),
+			IsActive: gofakeit.Bool(),
+			Props:    gofakeit.Map(),
+		}
+
+		for name, instance := range h.dbInstances {
 			query := `INSERT INTO Table1
 			(Id, CreateAt, Name, Description)
 			VALUES
@@ -75,12 +82,6 @@ func (h *testHelper) SeedTableData(entryCount int) *testHelper {
 			`
 			_, err := instance.sqlDB.NamedExec(query, s1)
 			require.NoError(h.t, err, "could not insert s1 on %q", name)
-
-			s2 := testStruct2{
-				Id:       newId(),
-				IsActive: gofakeit.Bool(),
-				Props:    gofakeit.Map(),
-			}
 
 			query = `INSERT INTO Table2
 			(Id, IsActive, Props)

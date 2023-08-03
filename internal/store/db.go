@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -130,6 +131,10 @@ func (db *DB) dataTypes(table string) ([]*ColumnInfo, error) {
 		return nil, err
 	}
 
+	sort.Slice(v, func(i, j int) bool {
+		return strings.ToLower(v[i].ColumnName) < strings.ToLower(v[j].ColumnName)
+	})
+
 	return v, nil
 }
 
@@ -163,7 +168,7 @@ func (db *DB) count(table *TableInfo) (int, error) {
 	return count, nil
 }
 
-func (db *DB) checksum(table *TableInfo) ([]uint, error) {
+func (db *DB) checksum(table *TableInfo) (string, error) {
 	q := struct {
 		TableName     string
 		ColumnQuery   string
@@ -184,25 +189,25 @@ func (db *DB) checksum(table *TableInfo) ([]uint, error) {
 		var schemaName sql.NullString
 		err := db.sqlDB.Get(&schemaName, "SELECT current_schema()")
 		if err != nil {
-			return nil, fmt.Errorf("could not get current schema: %w", err)
+			return "", fmt.Errorf("could not get current schema: %w", err)
 		} else if schemaName.String == "" {
 			q.CurrentSchema = "public"
 		} else {
 			q.CurrentSchema = schemaName.String
 		}
 	default:
-		return nil, fmt.Errorf("unrecognized database driver: %s", db.dbType)
+		return "", fmt.Errorf("unrecognized database driver: %s", db.dbType)
 	}
 
 	t, err := t.Parse(tmpl)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse template: %w", err)
+		return "", fmt.Errorf("could not parse template: %w", err)
 	}
 
 	out := bytes.NewBufferString("")
 	err = t.Execute(out, q)
 	if err != nil {
-		return nil, fmt.Errorf("could not execute template: %w", err)
+		return "", fmt.Errorf("could not execute template: %w", err)
 	}
 
 	var v = []struct {
@@ -213,9 +218,9 @@ func (db *DB) checksum(table *TableInfo) ([]uint, error) {
 	}{}
 	err = db.sqlDB.Select(&v, out.String())
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	ints := v[0]
 
-	return []uint{ints.A, ints.B, ints.C, ints.D}, nil
+	return fmt.Sprintf("%d%d%d%d", ints.A, ints.B, ints.C, ints.D), nil
 }

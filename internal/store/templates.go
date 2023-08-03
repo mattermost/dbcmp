@@ -43,22 +43,29 @@ from (
 // generateQueryForColumns creates the query for specific driver to calculate
 // a md5 checksum of a table.
 func generateQueryForColumns(driver string, columns []*ColumnInfo) string {
+
 	c := make([]string, len(columns))
 	switch driver {
 	case DatabaseDriverMysql:
 		for i := range columns {
-			c[i] = fmt.Sprintf("coalesce(md5(%s), ' ')", columns[i].ColumnName)
+			name := columns[i].ColumnName
+			// reserved words require quotes in mysql
+			if name == "Desc" || name == "Trigger" {
+				name = fmt.Sprintf("`%s`", name)
+			}
+			c[i] = fmt.Sprintf("coalesce(md5(%s), ' ')", name)
 		}
 		return strings.Join(c, ",\n")
 	case DatabaseDriverPostgres:
 		for i := range columns {
+			name := columns[i].ColumnName
 			switch columns[i].DataType {
 			case "boolean":
-				c[i] = fmt.Sprintf("coalesce((md5((\"%s\"::int)::text)), ' ') ", columns[i].ColumnName)
+				c[i] = fmt.Sprintf("coalesce((md5((\"%s\"::int)::text)), ' ') ", name)
 			case "bytea":
-				c[i] = fmt.Sprintf("coalesce((md5(\"%s\")), ' ') ", columns[i].ColumnName)
+				c[i] = fmt.Sprintf("coalesce((md5(\"%s\")), ' ') ", name)
 			default:
-				c[i] = fmt.Sprintf("coalesce(md5(\"%s\"::text), ' ') ", columns[i].ColumnName)
+				c[i] = fmt.Sprintf("coalesce(md5(\"%s\"::text), ' ') ", name)
 			}
 
 		}

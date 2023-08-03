@@ -47,6 +47,6 @@ func TestCheksum(t *testing.T) {
 
 		sum, err := db.checksum(tables["table1"])
 		require.NoError(t, err)
-		require.Len(t, sum, 4)
+		require.NotEmpty(t, sum)
 	})
 }
