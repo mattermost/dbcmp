@@ -53,11 +53,10 @@ func (si stringInterface) Value() (driver.Value, error) {
 		return nil, err
 	}
 
-	// non utf8 characters are not supported https://mattermost.atlassian.net/browse/MM-41066
 	return string(j), err
 }
 
-// newId creates a unique identifier
+// newId creates a unique identifier like being done in MM
 func newId() string {
 	return encoding.EncodeToString(uuid.NewRandom())
 }

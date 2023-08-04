@@ -37,3 +37,7 @@ Introducing `dbcmp` - Your Command Line Database Content Comparison Tool
    ```
 
 Now you have the power to compare database content effortlessly with dbcmp. Happy comparing!
+
+## LICENSE
+
+[MIT](LICENSE)

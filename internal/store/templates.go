@@ -43,7 +43,8 @@ from (
 // generateQueryForColumns creates the query for specific driver to calculate
 // a md5 checksum of a table.
 func generateQueryForColumns(driver string, columns []*ColumnInfo) string {
-
+	// ideally we sshould be able to define casting rules here
+	// or skip some of the columns entirely from calculating the md5
 	c := make([]string, len(columns))
 	switch driver {
 	case DatabaseDriverMysql:
