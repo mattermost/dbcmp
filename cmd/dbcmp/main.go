@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/mattermost/dbcmp/internal/store"
@@ -14,15 +15,17 @@ import (
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:   "dbcmp",
-		Short: "dbcmp is your go-to database content comparison tool",
-		Long:  "dbcmp is a powerful and efficient command line tool designed to simplify the process of comparing content between two databases.",
-		RunE:  runRootCmdFn,
+		Use:     "dbcmp",
+		Short:   "dbcmp is your go-to database content comparison tool",
+		Long:    "dbcmp is a powerful and efficient command line tool designed to simplify the process of comparing content between two databases.",
+		RunE:    runRootCmdFn,
+		Version: versionCmdFn(),
 	}
 
 	rootCmd.PersistentFlags().String("source", "", "source database dsn")
 	rootCmd.PersistentFlags().String("target", "", "target database dsn")
 	rootCmd.Flags().StringSlice("exclude", []string{}, "exclude tables from comparison, takes comma-separated values.")
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -59,4 +62,21 @@ func runRootCmdFn(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("Database values are same.")
 	return nil
+}
+
+func versionCmdFn() string {
+	version := "unknown"
+	buildDate := "unkonwn"
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				version = setting.Value
+			} else if setting.Key == "vcs.time" {
+				buildDate = setting.Value
+			}
+		}
+	}
+	version = fmt.Sprintf("\t: %s", version[:7])
+	buildDate = fmt.Sprintf("build date\t: %s", buildDate)
+	return strings.Join([]string{version, buildDate}, "\n")
 }
