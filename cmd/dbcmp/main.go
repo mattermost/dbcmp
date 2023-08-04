@@ -52,12 +52,11 @@ func runRootCmdFn(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error during comparison: %w", err)
 	}
 
-	if len(diffs) == 0 {
-		fmt.Println("Database values are same.")
-		return nil
+	if len(diffs) > 0 {
+		fmt.Printf("Database values differ. Tables: %s\n", strings.Join(diffs, ", "))
+		os.Exit(1)
 	}
 
-	fmt.Printf("Database values differ. Tables: %s\n", strings.Join(diffs, ", "))
-
+	fmt.Println("Database values are same.")
 	return nil
 }

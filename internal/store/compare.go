@@ -19,7 +19,7 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 
 	srcTables, err := srcdb.TableList()
 	if err != nil {
-		return nil, fmt.Errorf("could not list tables")
+		return nil, fmt.Errorf("could not list src tables")
 	}
 
 	dstdb, err := NewDB(dstDSN)
@@ -30,7 +30,7 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 
 	dstTables, err := dstdb.TableList()
 	if err != nil {
-		return nil, fmt.Errorf("could not list tables")
+		return nil, fmt.Errorf("could not list dst tables")
 	}
 
 	excl := sliceToMap(opts.ExcludePatterns)
