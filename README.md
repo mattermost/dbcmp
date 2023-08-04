@@ -19,7 +19,7 @@ Introducing `dbcmp` - Your Command Line Database Content Comparison Tool
 1. To install dbcmp, simply run:
 
    ```sh
-   go install github.com/isacikgoz/dbcmp/cmd/dbcmp
+   go install github.com/mattermost/dbcmp/cmd/dbcmp
    ```
 
 2. To Configure, dbcmp requires access credentials for the databases you want to compare. You can set them directly as command line arguments.

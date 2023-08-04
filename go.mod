@@ -1,4 +1,4 @@
-module github.com/isacikgoz/dbcmp
+module github.com/mattermost/dbcmp
 
 go 1.20
 

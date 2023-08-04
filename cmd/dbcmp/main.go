@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/isacikgoz/dbcmp/internal/store"
+	"github.com/mattermost/dbcmp/internal/store"
 	"github.com/spf13/cobra"
 
 	_ "github.com/go-sql-driver/mysql"
