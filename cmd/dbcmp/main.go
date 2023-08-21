@@ -25,6 +25,7 @@ func main() {
 	rootCmd.PersistentFlags().String("source", "", "source database dsn")
 	rootCmd.PersistentFlags().String("target", "", "target database dsn")
 	rootCmd.Flags().StringSlice("exclude", []string{}, "exclude tables from comparison, takes comma-separated values.")
+	rootCmd.Flags().Int("page-size", 1000, "page size for each checksum comparison.")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -48,8 +49,18 @@ func runRootCmdFn(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	pageSize, err := cmd.Flags().GetInt("page-size")
+	if err != nil {
+		return err
+	}
+
+	if pageSize < 2 {
+		return fmt.Errorf("page size could not be less than 2 (two), current value is: %d", pageSize)
+	}
+
 	diffs, err := store.Compare(source, target, store.CompareOptions{
 		ExcludePatterns: excl,
+		PageSize:        pageSize,
 	})
 	if err != nil {
 		return fmt.Errorf("error during comparison: %w", err)

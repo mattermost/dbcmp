@@ -8,6 +8,7 @@ import (
 type CompareOptions struct {
 	ExcludePatterns []string
 	Verbose         bool
+	PageSize        int
 }
 
 func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
@@ -19,7 +20,7 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 
 	srcTables, err := srcdb.TableList()
 	if err != nil {
-		return nil, fmt.Errorf("could not list src tables")
+		return nil, fmt.Errorf("could not list src tables: %w", err)
 	}
 
 	dstdb, err := NewDB(dstDSN)
@@ -30,7 +31,7 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 
 	dstTables, err := dstdb.TableList()
 	if err != nil {
-		return nil, fmt.Errorf("could not list dst tables")
+		return nil, fmt.Errorf("could not list dst tables: %w", err)
 	}
 
 	excl := sliceToMap(opts.ExcludePatterns)
@@ -47,12 +48,15 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 	}
 
 	var mismatchs []string
+
+tableLoop:
 	for k, v := range srcTables {
 		v2, ok := dstTables[strings.ToLower(k)]
 		if !ok {
 			return nil, fmt.Errorf("%q table is not found in dst schema", k)
 		}
 
+		// we do a count comparison to save some resources before diving deeper
 		c1, err := srcdb.count(v)
 		if err != nil {
 			return nil, fmt.Errorf("could not count rows of %q: %w", v.TableName, err)
@@ -68,20 +72,40 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 			continue
 		}
 
-		srcCheksum, err := srcdb.checksum(v)
-		if err != nil {
-			return nil, fmt.Errorf("could not compute checksum: %w", err)
+		remainig := opts.PageSize
+		var cd1, cd2 cursorData
+		var srcCheksum, dstChecksum string
+
+		// loop until no remaining rows left to calculate checksum
+		for remainig > 0 {
+			if cd1.cursors == nil {
+				cd1.limit = remainig
+			}
+			if cd2.cursors == nil {
+				cd2.limit = remainig
+			}
+			srcCheksum, cd1, err = srcdb.checksum(v, cd1)
+			if err != nil {
+				return nil, fmt.Errorf("could not compute src checksum: %w", err)
+			}
+
+			dstChecksum, cd2, err = dstdb.checksum(v2, cd2)
+			if err != nil {
+				return nil, fmt.Errorf("could not compute dst checksum: %w", err)
+			}
+
+			if srcCheksum != dstChecksum {
+				mismatchs = append(mismatchs, v.TableName)
+				continue tableLoop
+			}
+
+			if cd1.limit != cd2.limit {
+				return nil, fmt.Errorf("could not compute checksum: cursors are out of sync")
+			}
+
+			remainig = cd1.limit
 		}
 
-		dstChecksum, err := dstdb.checksum(v2)
-		if err != nil {
-			return nil, fmt.Errorf("could not compute checksum: %w", err)
-		}
-
-		if srcCheksum != dstChecksum {
-			mismatchs = append(mismatchs, v.TableName)
-			continue
-		}
 	}
 
 	return mismatchs, nil

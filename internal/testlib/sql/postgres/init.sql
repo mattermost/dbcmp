@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS Table1 (
 );
 
 CREATE TABLE IF NOT EXISTS Table2 (
-    Id varchar(26) PRIMARY KEY,
+    Id varchar(26) NOT NULL,
+    AnotherId varchar(26) NOT NULL,
     IsActive boolean,
-    Props JSONB
+    Props JSONB,
+    PRIMARY KEY (Id, AnotherId)
 );

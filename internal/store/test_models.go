@@ -21,9 +21,10 @@ type testStruct1 struct {
 }
 
 type testStruct2 struct {
-	Id       string          `db:"Id"`
-	IsActive bool            `db:"IsActive"`
-	Props    stringInterface `db:"Props"`
+	Id        string          `db:"Id"`
+	AnotherId string          `db:"AnotherId"`
+	IsActive  bool            `db:"IsActive"`
+	Props     stringInterface `db:"Props"`
 }
 
 type stringInterface map[string]any
