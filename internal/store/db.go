@@ -193,11 +193,14 @@ func (db *DB) checksum(table *TableInfo, cursor cursorData) (string, cursorData,
 	t := template.New("query")
 	var tmpl string
 
+	// we need the decide on which template to use for the checksum query
 	switch db.dbType {
 	case DatabaseDriverMysql:
 		tmpl = MySQLChecksumTmpl
 	case DatabaseDriverPostgres:
 		tmpl = PostgresChecksumTmpl
+		// in addition to the template, postgres reuqies the selected schema id
+		// to access objects, it's generally public but it's not guaranteed
 		var schemaName sql.NullString
 		err := db.sqlDB.Get(&schemaName, "SELECT current_schema()")
 		if err != nil {
@@ -216,6 +219,8 @@ func (db *DB) checksum(table *TableInfo, cursor cursorData) (string, cursorData,
 		return "", cursorData{}, fmt.Errorf("could not parse template: %w", err)
 	}
 
+	// pagination query is basically the condtion for the WHERE statement for the
+	// checksum query.
 	paginationQuery, args, err := generateQueryForPagination(db.dbType, table.PrimaryKeys, cursor.cursors)
 	if err != nil {
 		return "", cursorData{}, fmt.Errorf("could not generate query for the cursor: %w", err)
@@ -242,19 +247,14 @@ func (db *DB) checksum(table *TableInfo, cursor cursorData) (string, cursorData,
 	// we convert the result to a string, it's easier to compare
 	result := fmt.Sprintf("%d%d%d%d", ints.A, ints.B, ints.C, ints.D)
 
-	// the remaining part is about determining the next cursors for the sum operation
-	// since we don't actually read any rows from the tables, we simply need to pick
-	// required rows from the query executed above. Hence we are limiting the query with 1
-	// this time.
+	// the remaining part is about determining the next cursors.
+	// since we don't actually read any rows from the tables for sum operation,
+	// we simply need to pick required rows from the query executed above.
 	var c sq.And
 	for i := range cursor.cursors {
 		c = append(c, sq.Gt{table.PrimaryKeys[i]: cursor.cursors[i]})
 	}
 
-	// the remaining part is about determining the cursor
-	// we basically need to read from the DB and figure out what is the last
-	// primary key. Since we leave checksum calculation to the DB, we will need to at least
-	// read the primary keys here.
 	builder := sq.StatementBuilder.PlaceholderFormat(sq.Question)
 	tableName := table.TableName
 	if db.dbType == DatabaseDriverPostgres {
@@ -262,17 +262,15 @@ func (db *DB) checksum(table *TableInfo, cursor cursorData) (string, cursorData,
 		tableName = strings.Join([]string{q.CurrentSchema, tableName}, ".")
 	}
 
-	var cursorQueryBuilder sq.SelectBuilder
-	// we don't have anything to filter for a where condtion hence we are skipping to
-	// add a where statement if there is no available cursors
-	if cursor.cursors != nil {
-		cursorQueryBuilder = builder.
-			Select(table.PrimaryKeys...).
-			From(tableName).
-			Where(c).
-			OrderBy(strings.Join(table.PrimaryKeys, ",") + " ASC").
-			Limit(uint64(cursor.limit))
-	} else {
+	cursorQueryBuilder := builder.
+		Select(table.PrimaryKeys...).
+		From(tableName).
+		Where(c).
+		OrderBy(strings.Join(table.PrimaryKeys, ",") + " ASC").
+		Limit(uint64(cursor.limit))
+
+	// if we don't have anything for a where condtion, we avoid adding it.
+	if cursor.cursors == nil {
 		cursorQueryBuilder = builder.
 			Select(table.PrimaryKeys...).
 			From(tableName).
@@ -280,6 +278,8 @@ func (db *DB) checksum(table *TableInfo, cursor cursorData) (string, cursorData,
 			Limit(uint64(cursor.limit))
 	}
 
+	// to determine whether we should continue iterating the cursor,
+	// we get the count of remained rows here
 	cursorCountQueryBuilder := builder.
 		Select("COUNT(*)").
 		FromSelect(cursorQueryBuilder, "q2")
@@ -295,16 +295,11 @@ func (db *DB) checksum(table *TableInfo, cursor cursorData) (string, cursorData,
 		return "", cursorData{}, fmt.Errorf("could not select cursors: %w", err)
 	}
 
-	// we break here because that means the items received are lesser than our batch size
-	// it indirectly means that we are already at the end of the cursor
+	// we break here because that means the items received from the previous call
+	// was the last remaining rows from the cursor.
+	// in short, it means that we are already at the end of the cursor
 	if count < cursor.limit {
 		return result, cursorData{}, nil
-	}
-
-	resultName := "q1"
-	resultPrimaryKeys := make([]string, len(table.PrimaryKeys))
-	for i := range resultPrimaryKeys {
-		resultPrimaryKeys[i] = resultName + "." + table.PrimaryKeys[i]
 	}
 
 	cursors := []any{}
@@ -315,8 +310,8 @@ func (db *DB) checksum(table *TableInfo, cursor cursorData) (string, cursorData,
 	for _, pk := range table.PrimaryKeys {
 		lastCursorQueryBuilder := builder.
 			Select(pk).
-			FromSelect(cursorQueryBuilder, resultName).
-			OrderBy(strings.Join(resultPrimaryKeys, ",") + " DESC").
+			FromSelect(cursorQueryBuilder, "q1").
+			OrderBy(strings.Join(table.PrimaryKeys, ",") + " DESC").
 			Limit(1)
 
 		lastCursorQuery, lastCursorArgs, err := lastCursorQueryBuilder.ToSql()

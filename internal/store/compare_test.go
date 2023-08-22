@@ -13,7 +13,7 @@ func TestCompare(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, mismatches)
 
-	ec := rand.Intn(100)
+	ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
 	h := newTestHelper(t).SeedTableData(ec)
 	defer h.Teardown()
 
