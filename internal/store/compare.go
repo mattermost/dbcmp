@@ -72,17 +72,17 @@ tableLoop:
 			continue
 		}
 
-		remainig := opts.PageSize
+		remaining := opts.PageSize
 		var cd1, cd2 cursorData
 		var srcCheksum, dstChecksum string
 
 		// loop until no remaining rows left to calculate checksum
-		for remainig > 0 {
+		for remaining > 0 {
 			if cd1.cursors == nil {
-				cd1.limit = remainig
+				cd1.limit = remaining
 			}
 			if cd2.cursors == nil {
-				cd2.limit = remainig
+				cd2.limit = remaining
 			}
 			srcCheksum, cd1, err = srcdb.checksum(v, cd1)
 			if err != nil {
@@ -103,7 +103,7 @@ tableLoop:
 				return nil, fmt.Errorf("could not compute checksum: cursors are out of sync")
 			}
 
-			remainig = cd1.limit
+			remaining = cd1.limit
 		}
 
 	}
