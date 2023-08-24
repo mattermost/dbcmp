@@ -12,7 +12,7 @@ Introducing `dbcmp` - Your Command Line Database Content Comparison Tool
 2. Currently, `dbcmp` supports MySQL and PostgreSQL. You can also compare content between same database systems.
 3. You can specify the tables (and maybe columns) you want to compare, giving you granular control over the comparison process and avoiding unnecessary comparisons. (TBA)
 4. The tool provides minimal output, allowing you to easily focus on which tables are different.
-5. `dbcmp` is not designed to handle large datasets hence we recommend this tool for relatively smaller databases. Optimizations may come in future versions.
+5. Support for large databases; native pagination provides a comparison process that doesn't bring much load on your databases.
 
 ## How to Use dbcmp
 
@@ -34,6 +34,12 @@ Introducing `dbcmp` - Your Command Line Database Content Comparison Tool
 
    ```sh
    dbcmp --source source_dsn --target target_dsn --exclude=table1,table2
+   ```
+
+5. If you would like to change page size, you can use `--page-size` option to optimize your comparison performance:
+
+   ```sh
+   bcmp --source source_dsn --target target_dsn --page-size=5000
    ```
 
 Now you have the power to compare database content effortlessly with dbcmp. Happy comparing!
