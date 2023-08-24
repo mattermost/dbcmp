@@ -69,9 +69,10 @@ func (h *testHelper) SeedTableData(entryCount int) *testHelper {
 		}
 
 		s2 := testStruct2{
-			Id:       newId(),
-			IsActive: gofakeit.Bool(),
-			Props:    gofakeit.Map(),
+			Id:        newId(),
+			AnotherId: newId(),
+			IsActive:  gofakeit.Bool(),
+			Props:     gofakeit.Map(),
 		}
 
 		for name, instance := range h.dbInstances {
@@ -84,9 +85,9 @@ func (h *testHelper) SeedTableData(entryCount int) *testHelper {
 			require.NoError(h.t, err, "could not insert s1 on %q", name)
 
 			query = `INSERT INTO Table2
-			(Id, IsActive, Props)
+			(Id, AnotherId, IsActive, Props)
 			VALUES
-			(:Id, :IsActive, :Props)
+			(:Id, :AnotherId, :IsActive, :Props)
 			`
 			_, err = instance.sqlDB.NamedExec(query, s2)
 			require.NoError(h.t, err, "could not insert s2 on %q", name)

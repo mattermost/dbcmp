@@ -45,8 +45,27 @@ func TestCheksum(t *testing.T) {
 		tables, err := db.TableList()
 		require.NoError(t, err)
 
-		sum, err := db.checksum(tables["table1"])
+		sum, _, err := db.checksum(tables["table1"], cursorData{
+			limit: 100,
+		})
 		require.NoError(t, err)
 		require.NotEmpty(t, sum)
+	})
+}
+
+func TestPrimaryKeys(t *testing.T) {
+	h := newTestHelper(t)
+	defer h.Teardown()
+
+	h.RunForAllDrivers(t, func(t *testing.T, db *DB) {
+		tables, err := db.TableList()
+		require.NoError(t, err)
+
+		for _, table := range tables {
+			pks, err := db.primaryKeys(table.TableName)
+			require.NoError(t, err)
+			require.NotEmpty(t, pks)
+			t.Log(pks)
+		}
 	})
 }

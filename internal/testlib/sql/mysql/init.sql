@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS Table1 (
 
 CREATE TABLE IF NOT EXISTS Table2 (
     Id varchar(26) NOT NULL,
+    AnotherId varchar(26) NOT NULL,
     IsActive tinyint(4),
     Props JSON,
-    PRIMARY KEY (Id)
+    PRIMARY KEY (Id, AnotherId)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -13,15 +13,19 @@ func TestCompare(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, mismatches)
 
-	ec := rand.Intn(100)
+	ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
 	h := newTestHelper(t).SeedTableData(ec)
 	defer h.Teardown()
 
-	mismatches, err = Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{})
+	mismatches, err = Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
+		PageSize: 20,
+	})
 	require.NoError(t, err)
 	require.Empty(t, mismatches)
 
-	mismatches, err = Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{})
+	mismatches, err = Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
+		PageSize: 20,
+	})
 	require.NoError(t, err)
 	require.Empty(t, mismatches)
 
@@ -32,7 +36,9 @@ func TestCompare(t *testing.T) {
 	_, err = mysqldb.sqlDB.Query("DELETE FROM Table1 LIMIT 1")
 	require.NoError(t, err)
 
-	mismatches, err = Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{})
+	mismatches, err = Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
+		PageSize: 20,
+	})
 	require.NoError(t, err)
 	require.Len(t, mismatches, 1)
 }
