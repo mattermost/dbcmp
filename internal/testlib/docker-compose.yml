@@ -15,7 +15,7 @@ services:
       timeout: 10s
       retries: 3
   mysql:
-    image: "mysql:5.7"
+    image: "mysql:8"
     restart: always
     ports:
       - "3316:3306"

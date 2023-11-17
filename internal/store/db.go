@@ -123,7 +123,9 @@ func (db *DB) dataTypes(table string) ([]*ColumnInfo, error) {
 		sqt = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 	}
 
-	sqb := sqt.Select("column_name, data_type").
+	// with mysql-8, column_name is capitalized and it complains when
+	// querying like this. This works for both.
+	sqb := sqt.Select("column_name as column_name, data_type as data_type").
 		From("information_schema.columns").
 		Where(sq.And{sq.Eq{"table_name": table}})
 
@@ -350,7 +352,9 @@ func (db *DB) primaryKeys(tableName string) ([]string, error) {
 		AND 
 			TABLE_NAME = ?
 		AND
-			COLUMN_KEY = 'PRI'`
+			COLUMN_KEY = 'PRI'
+		ORDER BY
+			COLUMN_NAME`
 
 		err := db.sqlDB.Select(&pks, query, tableName)
 		if err != nil {
@@ -385,7 +389,9 @@ func (db *DB) primaryKeys(tableName string) ([]string, error) {
 		AND
 			pg_attribute.attnum = any(pg_index.indkey)
 		AND
-			indisprimary`
+			indisprimary
+		ORDER BY
+			pg_attribute.attname`
 		err = db.sqlDB.Select(&pks, query, strings.Join([]string{currentSchema, tableName}, "."))
 		if err != nil {
 			return nil, err
