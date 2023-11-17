@@ -136,6 +136,8 @@ func (db *DB) dataTypes(table string) ([]*ColumnInfo, error) {
 
 	if db.dbType == DatabaseDriverMysql {
 		query += " AND table_schema = Database()"
+	} else if db.dbType == DatabaseDriverPostgres {
+		query += " AND table_schema = CURRENT_SCHEMA()"
 	}
 
 	var v []*ColumnInfo
