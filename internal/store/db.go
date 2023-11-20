@@ -354,9 +354,7 @@ func (db *DB) primaryKeys(tableName string) ([]string, error) {
 		AND 
 			TABLE_NAME = ?
 		AND
-			COLUMN_KEY = 'PRI'
-		ORDER BY
-			COLUMN_NAME`
+			COLUMN_KEY = 'PRI'`
 
 		err := db.sqlDB.Select(&pks, query, tableName)
 		if err != nil {
@@ -391,9 +389,7 @@ func (db *DB) primaryKeys(tableName string) ([]string, error) {
 		AND
 			pg_attribute.attnum = any(pg_index.indkey)
 		AND
-			indisprimary
-		ORDER BY
-			pg_attribute.attname`
+			indisprimary`
 		err = db.sqlDB.Select(&pks, query, strings.Join([]string{currentSchema, tableName}, "."))
 		if err != nil {
 			return nil, err
