@@ -128,6 +128,11 @@ func (db *DB) dataTypes(table string) ([]*ColumnInfo, error) {
 	sqb := sqt.Select("column_name as column_name, data_type as data_type").
 		From("information_schema.columns").
 		Where(sq.And{sq.Eq{"table_name": table}})
+	if db.dbType == DatabaseDriverPostgres {
+		sqb = sqt.Select("column_name, data_type").
+			From("information_schema.columns").
+			Where(sq.And{sq.Eq{"table_name": table}})
+	}
 
 	query, args, err := sqb.ToSql()
 	if err != nil {
