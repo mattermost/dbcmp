@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/blang/semver/v4"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -123,9 +124,19 @@ func (db *DB) dataTypes(table string) ([]*ColumnInfo, error) {
 		sqt = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 	}
 
-	// with mysql-8, column_name is capitalized and it complains when
-	// querying like this. This works for both.
-	sqb := sqt.Select("column_name as column_name, data_type as data_type").
+	selectStmt := "column_name, data_type"
+	if db.dbType == DatabaseDriverMysql {
+		v, err := db.Version()
+		if err != nil {
+			return nil, fmt.Errorf("could not retrieve db version: %w", err)
+		}
+		// with mysql-8, column_name is capitalized and it complains when
+		// querying like above.
+		if v.GTE(semver.MustParse("8.0.0")) {
+			selectStmt = "column_name as column_name, data_type as data_type"
+		}
+	}
+	sqb := sqt.Select(selectStmt).
 		From("information_schema.columns").
 		Where(sq.And{sq.Eq{"table_name": table}})
 
@@ -399,4 +410,24 @@ func (db *DB) primaryKeys(tableName string) ([]string, error) {
 	}
 
 	return pks, nil
+}
+
+func (db *DB) Version() (*semver.Version, error) {
+	var vs string
+	row := db.sqlDB.QueryRow("SELECT VERSION()")
+
+	if err := row.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := row.Scan(&vs); err != nil {
+		return nil, err
+	}
+
+	ver, err := semver.ParseTolerant(vs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ver, nil
 }

@@ -3,6 +3,7 @@ package store
 import (
 	"math/rand"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v6"
@@ -11,8 +12,9 @@ import (
 )
 
 const (
-	mysqlTestDSN = "mysqluser:sspw@tcp(localhost:3316)/dbcmp_test?charset=utf8mb4,utf8"
-	pgsqlTestDSN = "postgres://pguser:sspw@localhost:5442/dbcmp_test?sslmode=disable"
+	mysqlTestDSN       = "mysqluser:sspw@tcp(localhost:3316)/dbcmp_test?charset=utf8mb4,utf8"
+	mysqlLegacyTestDSN = "mysqluser:sspw@tcp(localhost:3326)/dbcmp_test?charset=utf8mb4,utf8"
+	pgsqlTestDSN       = "postgres://pguser:sspw@localhost:5442/dbcmp_test?sslmode=disable"
 )
 
 // testHelper is a helper struct for testing morph engine.
@@ -41,6 +43,12 @@ func (h *testHelper) initializeInstances() {
 
 	h.dbInstances["mysql"] = db
 
+	// mysql-legacy
+	db1, err := NewDB(mysqlLegacyTestDSN)
+	require.NoError(h.t, err)
+
+	h.dbInstances["mysql-legacy"] = db1
+
 	// postgres
 	db2, err := NewDB(pgsqlTestDSN)
 	require.NoError(h.t, err)
@@ -49,7 +57,7 @@ func (h *testHelper) initializeInstances() {
 
 	assets := testlib.Assets()
 	for name, instance := range h.dbInstances {
-		b, err := assets.ReadFile(filepath.Join("sql", name, "init.sql"))
+		b, err := assets.ReadFile(filepath.Join("sql", strings.TrimSuffix(name, "-legacy"), "init.sql"))
 		require.NoError(h.t, err)
 		_, err = instance.sqlDB.Query(string(b))
 		require.NoError(h.t, err)
@@ -101,7 +109,7 @@ func (h *testHelper) SeedTableData(entryCount int) *testHelper {
 func (h *testHelper) Teardown() {
 	assets := testlib.Assets()
 	for name, instance := range h.dbInstances {
-		b, err := assets.ReadFile(filepath.Join("sql", name, "drop.sql"))
+		b, err := assets.ReadFile(filepath.Join("sql", strings.TrimSuffix(name, "-legacy"), "drop.sql"))
 		require.NoError(h.t, err)
 		_, err = instance.sqlDB.Query(string(b))
 		require.NoError(h.t, err)

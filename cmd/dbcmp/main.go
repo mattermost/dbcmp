@@ -15,9 +15,11 @@ import (
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:     "dbcmp",
-		Short:   "dbcmp is your go-to database content comparison tool",
-		Long:    "dbcmp is a powerful and efficient command line tool designed to simplify the process of comparing content between two databases.",
+		Use:   "dbcmp",
+		Short: "dbcmp is your go-to database content comparison tool",
+		Long: "dbcmp is a powerful and efficient command line tool designed to simplify the process of comparing content between two databases.\n\n" +
+			"The tool calculates the checksum value of given page-size and compares those values. This means it cannot calculate or provide diffs on individual rows.",
+		Example: " . dbcmp --source \"user:password@tcp(address:3306)/db_name\" --target \"postgres://user:password@address:5432/db_name\"",
 		RunE:    runRootCmdFn,
 		Version: versionCmdFn(),
 	}

@@ -13,11 +13,22 @@ func TestCompare(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, mismatches)
 
+	// compare empty databases
+	mismatches, err = Compare(mysqlLegacyTestDSN, pgsqlTestDSN, CompareOptions{})
+	require.NoError(t, err)
+	require.Empty(t, mismatches)
+
 	ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
 	h := newTestHelper(t).SeedTableData(ec)
 	defer h.Teardown()
 
 	mismatches, err = Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
+		PageSize: 20,
+	})
+	require.NoError(t, err)
+	require.Empty(t, mismatches)
+
+	mismatches, err = Compare(mysqlLegacyTestDSN, pgsqlTestDSN, CompareOptions{
 		PageSize: 20,
 	})
 	require.NoError(t, err)
