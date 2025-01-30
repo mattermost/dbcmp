@@ -8,48 +8,89 @@ import (
 )
 
 func TestCompare(t *testing.T) {
-	// compare empty databases
-	mismatches, err := Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{})
-	require.NoError(t, err)
-	require.Empty(t, mismatches)
+	t.Run("Compare empty database", func(t *testing.T) {
+		mismatches, err := Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{})
+		require.NoError(t, err)
+		require.Empty(t, mismatches)
+	})
 
-	// compare empty databases
-	mismatches, err = Compare(mysqlLegacyTestDSN, pgsqlTestDSN, CompareOptions{})
-	require.NoError(t, err)
-	require.Empty(t, mismatches)
+	t.Run("Compare empty database (legacy)", func(t *testing.T) {
+		mismatches, err := Compare(mysqlLegacyTestDSN, pgsqlTestDSN, CompareOptions{})
+		require.NoError(t, err)
+		require.Empty(t, mismatches)
+	})
 
 	ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
 	h := newTestHelper(t).SeedTableData(ec)
 	defer h.Teardown()
 
-	mismatches, err = Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
-		PageSize: 20,
+	t.Run("Compare databases with same data", func(t *testing.T) {
+		mismatches, err := Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
+			PageSize: 20,
+		})
+		require.NoError(t, err)
+		require.Empty(t, mismatches)
 	})
-	require.NoError(t, err)
-	require.Empty(t, mismatches)
 
-	mismatches, err = Compare(mysqlLegacyTestDSN, pgsqlTestDSN, CompareOptions{
-		PageSize: 20,
+	t.Run("Compare databases with same data (legacy)", func(t *testing.T) {
+		mismatches, err := Compare(mysqlLegacyTestDSN, pgsqlTestDSN, CompareOptions{
+			PageSize: 20,
+		})
+		require.NoError(t, err)
+		require.Empty(t, mismatches)
 	})
-	require.NoError(t, err)
-	require.Empty(t, mismatches)
 
-	mismatches, err = Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
-		PageSize: 20,
+	t.Run("Compare databases with other way around", func(t *testing.T) {
+		mismatches, err := Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
+			PageSize: 20,
+		})
+		require.NoError(t, err)
+		require.Empty(t, mismatches)
 	})
-	require.NoError(t, err)
-	require.Empty(t, mismatches)
 
-	mysqldb, ok := h.dbInstances["mysql"]
-	require.True(t, ok)
+	t.Run("Compare databases when there is data change", func(t *testing.T) {
+		mysqldb, ok := h.dbInstances["mysql"]
+		require.True(t, ok)
 
-	// delete random entry
-	_, err = mysqldb.sqlDB.Query("DELETE FROM Table1 LIMIT 1")
-	require.NoError(t, err)
+		// delete random entry
+		_, err := mysqldb.sqlDB.Query("DELETE FROM Table1 LIMIT 1")
+		require.NoError(t, err)
 
-	mismatches, err = Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
-		PageSize: 20,
+		mismatches, err := Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
+			PageSize: 20,
+		})
+		require.NoError(t, err)
+		require.Len(t, mismatches, 1)
 	})
-	require.NoError(t, err)
-	require.Len(t, mismatches, 1)
+
+	t.Run("Assert exclude and include flags", func(t *testing.T) {
+		// test with exclude patterns
+		mismatches, err := Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
+			ExcludePatterns: []string{"Table1"},
+		})
+		require.NoError(t, err)
+		require.Empty(t, mismatches)
+
+		// Table2 is the same
+		mismatches, err = Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
+			IncludePatterns: []string{"Table2"},
+		})
+		require.NoError(t, err)
+		require.Empty(t, mismatches)
+
+		// test with include patterns
+		mismatches, err = Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
+			IncludePatterns: []string{"Table1"},
+		})
+		require.NoError(t, err)
+		require.Len(t, mismatches, 1)
+
+		// test with both include and exclude patterns
+		_, err = Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
+			IncludePatterns: []string{"Table1"},
+			ExcludePatterns: []string{"Table2"},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "include and exclude flags cannot be used together")
+	})
 }

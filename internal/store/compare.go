@@ -7,6 +7,7 @@ import (
 
 type CompareOptions struct {
 	ExcludePatterns []string
+	IncludePatterns []string
 	Verbose         bool
 	PageSize        int
 }
@@ -35,6 +36,11 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 	}
 
 	excl := sliceToMap(opts.ExcludePatterns)
+	incl := sliceToMap(opts.IncludePatterns)
+
+	if len(incl) > 0 && len(excl) > 0 {
+		return nil, fmt.Errorf("include and exclude flags cannot be used together")
+	}
 
 	// find a more elegant solution fo this
 	// essentially we want to exclude some
@@ -42,6 +48,11 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 	for k := range srcTables {
 		for e := range excl {
 			if strings.Contains(k, strings.ToLower(e)) {
+				delete(srcTables, k)
+			}
+		}
+		for e := range incl {
+			if !strings.Contains(k, strings.ToLower(e)) {
 				delete(srcTables, k)
 			}
 		}
