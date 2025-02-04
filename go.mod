@@ -1,9 +1,10 @@
 module github.com/mattermost/dbcmp
 
-go 1.20
+go 1.23
 
 require (
 	github.com/Masterminds/squirrel v1.5.4
+	github.com/blang/semver/v4 v4.0.0
 	github.com/brianvoe/gofakeit/v6 v6.23.0
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/jmoiron/sqlx v1.3.5
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
