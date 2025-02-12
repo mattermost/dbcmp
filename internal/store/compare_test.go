@@ -22,11 +22,11 @@ func TestCompare(t *testing.T) {
 		require.Empty(t, mismatches)
 	})
 
-	ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
-	h := newTestHelper(t).SeedTableData(ec)
-	defer h.Teardown()
-
 	t.Run("Compare databases with same data", func(t *testing.T) {
+		ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
+		h := newTestHelper(t).SeedTableData(ec)
+		defer h.Teardown()
+
 		mismatches, err := Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
 			PageSize: 20,
 		})
@@ -35,6 +35,10 @@ func TestCompare(t *testing.T) {
 	})
 
 	t.Run("Compare databases with same data (legacy)", func(t *testing.T) {
+		ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
+		h := newTestHelper(t).SeedTableData(ec)
+		defer h.Teardown()
+
 		mismatches, err := Compare(mysqlLegacyTestDSN, pgsqlTestDSN, CompareOptions{
 			PageSize: 20,
 		})
@@ -43,6 +47,10 @@ func TestCompare(t *testing.T) {
 	})
 
 	t.Run("Compare databases with other way around", func(t *testing.T) {
+		ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
+		h := newTestHelper(t).SeedTableData(ec)
+		defer h.Teardown()
+
 		mismatches, err := Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
 			PageSize: 20,
 		})
@@ -51,6 +59,10 @@ func TestCompare(t *testing.T) {
 	})
 
 	t.Run("Compare databases when there is data change", func(t *testing.T) {
+		ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
+		h := newTestHelper(t).SeedTableData(ec)
+		defer h.Teardown()
+
 		mysqldb, ok := h.dbInstances["mysql"]
 		require.True(t, ok)
 
@@ -81,6 +93,10 @@ func TestCompare(t *testing.T) {
 	})
 
 	t.Run("Assert exclude and include flags", func(t *testing.T) {
+		ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
+		h := newTestHelper(t).SeedTableData(ec)
+		defer h.Teardown()
+
 		// test with exclude patterns
 		mismatches, err := Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
 			ExcludePatterns: []string{"Table1"},
@@ -94,6 +110,13 @@ func TestCompare(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Empty(t, mismatches)
+
+		mysqldb, ok := h.dbInstances["mysql"]
+		require.True(t, ok)
+
+		// delete random entry
+		_, err = mysqldb.sqlDB.Query("DELETE FROM Table1 LIMIT 1")
+		require.NoError(t, err)
 
 		// test with include patterns
 		mismatches, err = Compare(mysqlTestDSN, pgsqlTestDSN, CompareOptions{
