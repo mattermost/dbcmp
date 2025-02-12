@@ -7,6 +7,7 @@ import (
 
 type CompareOptions struct {
 	ExcludePatterns []string
+	IncludePatterns []string
 	Verbose         bool
 	PageSize        int
 }
@@ -35,16 +36,20 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 	}
 
 	excl := sliceToMap(opts.ExcludePatterns)
+	incl := sliceToMap(opts.IncludePatterns)
 
-	// find a more elegant solution fo this
-	// essentially we want to exclude some
-	// patterns from comparing.
-	for k := range srcTables {
-		for e := range excl {
-			if strings.Contains(k, strings.ToLower(e)) {
-				delete(srcTables, k)
-			}
-		}
+	if len(incl) > 0 && len(excl) > 0 {
+		return nil, fmt.Errorf("include and exclude flags cannot be used together")
+	}
+
+	if len(incl) > 0 {
+		// include removes elements from the input map if they are not included.
+		// works with exact match and case-insensitive.
+		srcTables = filterMap(srcTables, opts.IncludePatterns, include)
+	} else if len(excl) > 0 {
+		// exclude removes elements from the input map by the given keys.
+		// filteration is case-insensitive and made with strings.Contains.
+		srcTables = filterMap(srcTables, opts.ExcludePatterns, exclude)
 	}
 
 	var mismatchs []string
