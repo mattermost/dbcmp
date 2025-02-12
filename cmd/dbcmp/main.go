@@ -29,6 +29,8 @@ func main() {
 	rootCmd.Flags().StringSlice("exclude", []string{}, "exclude tables from comparison, takes comma-separated values.")
 	rootCmd.Flags().StringSlice("include", []string{}, "include only matching tables for comparison, takes comma-separated values.")
 	rootCmd.Flags().Int("page-size", 1000, "page size for each checksum comparison.")
+	rootCmd.Flags().Bool("fail-fast", false, "fail fast if a difference is found.")
+	rootCmd.Flags().Bool("verbose", false, "verbose output (beta).")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -62,6 +64,16 @@ func runRootCmdFn(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	failFast, err := cmd.Flags().GetBool("fail-fast")
+	if err != nil {
+		return err
+	}
+
+	verbose, err := cmd.Flags().GetBool("verbose")
+	if err != nil {
+		return err
+	}
+
 	if pageSize < 2 {
 		return fmt.Errorf("page size could not be less than 2 (two), current value is: %d", pageSize)
 	}
@@ -70,6 +82,8 @@ func runRootCmdFn(cmd *cobra.Command, args []string) error {
 		ExcludePatterns: excl,
 		IncludePatterns: incl,
 		PageSize:        pageSize,
+		FailFast:        failFast,
+		Verbose:         verbose,
 	})
 	if err != nil {
 		return fmt.Errorf("error during comparison: %w", err)

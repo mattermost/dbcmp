@@ -2,8 +2,10 @@ package store
 
 import (
 	"math/rand"
+	"strings"
 	"testing"
 
+	"github.com/brianvoe/gofakeit/v6"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,6 +60,21 @@ func TestCompare(t *testing.T) {
 
 		mismatches, err := Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
 			PageSize: 20,
+		})
+		require.NoError(t, err)
+		require.Len(t, mismatches, 1)
+
+		// add random entry
+		_, err = mysqldb.sqlDB.Query("INSERT INTO Table1 (Id, CreateAt, Name, Description) VALUES (?, ?, ?, ?)",
+			strings.Repeat("0", 26), gofakeit.Int64(),
+			gofakeit.Name(),
+			gofakeit.Sentence(10),
+		)
+		require.NoError(t, err)
+
+		mismatches, err = Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
+			PageSize: 5,
+			Verbose:  true,
 		})
 		require.NoError(t, err)
 		require.Len(t, mismatches, 1)

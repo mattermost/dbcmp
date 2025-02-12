@@ -27,6 +27,9 @@ var (
 type DB struct {
 	sqlDB  *sqlx.DB
 	dbType string
+
+	// only applicable for postgres
+	currentSchema string
 }
 
 type TableInfo struct {
@@ -51,7 +54,6 @@ func NewDB(dsn string) (*DB, error) {
 	dbType := DatabaseDriverMysql
 	if strings.HasPrefix(dsn, "postgres") {
 		dbType = DatabaseDriverPostgres
-
 	}
 
 	newDsn, err := normalizeDSN(dsn)
@@ -64,10 +66,26 @@ func NewDB(dsn string) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{
+	v := &DB{
 		sqlDB:  db,
 		dbType: dbType,
-	}, nil
+	}
+
+	if dbType == DatabaseDriverPostgres {
+		var currentSchema string
+		var schemaName sql.NullString
+		if err := db.Get(&schemaName, "SELECT current_schema()"); err != nil {
+			return nil, fmt.Errorf("could not get current schema: %w", err)
+		}
+		if schemaName.String == "" {
+			currentSchema = "public"
+		} else {
+			currentSchema = schemaName.String
+		}
+		v.currentSchema = currentSchema
+	}
+
+	return v, nil
 }
 
 func (db *DB) Close() error {
