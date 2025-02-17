@@ -31,6 +31,7 @@ func main() {
 	rootCmd.Flags().Int("page-size", 1000, "page size for each checksum comparison.")
 	rootCmd.Flags().Bool("fail-fast", false, "fail fast if a difference is found.")
 	rootCmd.Flags().Bool("verbose", false, "verbose output (beta).")
+	rootCmd.Flags().Bool("skip-count", false, "skip count verification step.")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

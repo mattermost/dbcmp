@@ -2,7 +2,6 @@ package store
 
 import (
 	"fmt"
-	"math"
 	"strings"
 	"time"
 )
@@ -13,6 +12,7 @@ type CompareOptions struct {
 	Verbose         bool
 	PageSize        int
 	FailFast        bool
+	SkipCount       bool
 }
 
 func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
@@ -72,20 +72,22 @@ tableLoop:
 			return nil, fmt.Errorf("%q table is not found in dst schema", k)
 		}
 
-		// we do a count comparison to save some resources before diving deeper
-		c1, err := srcdb.count(v)
-		if err != nil {
-			return nil, fmt.Errorf("could not count rows of %q: %w", v.TableName, err)
-		}
-		c2, err := dstdb.count(v2)
-		if err != nil {
-			return nil, fmt.Errorf("could not count rows of %q: %w", v2.TableName, err)
-		}
-		if c1 != c2 {
-			mismatchs = append(mismatchs, v.TableName)
-			continue
-		} else if c1 == 0 {
-			continue
+		if !opts.SkipCount {
+			// we do a count comparison to save some resources before diving deeper
+			c1, err := srcdb.count(v)
+			if err != nil {
+				return nil, fmt.Errorf("could not count rows of %q: %w", v.TableName, err)
+			}
+			c2, err := dstdb.count(v2)
+			if err != nil {
+				return nil, fmt.Errorf("could not count rows of %q: %w", v2.TableName, err)
+			}
+			if c1 != c2 {
+				mismatchs = append(mismatchs, v.TableName)
+				continue
+			} else if c1 == 0 {
+				continue
+			}
 		}
 
 		remaining := opts.PageSize
@@ -203,7 +205,8 @@ tableLoop:
 			elapsed := time.Since(start)
 			// report progress every minute
 			if elapsed > time.Minute {
-				fmt.Printf("Table progress: %.0f%%\n", math.Round(float64(opts.PageSize*loopCount)/float64(c1))*100)
+				// fmt.Printf("Table progress: %.0f%%\n", math.Round(float64(opts.PageSize*loopCount)/float64(c1))*100)
+				fmt.Printf("Number of rows processed: %d\n", opts.PageSize*loopCount)
 				start = time.Now() // reset the start time
 			}
 
