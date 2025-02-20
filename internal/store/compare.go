@@ -57,7 +57,7 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 		srcTables = filterMap(srcTables, opts.ExcludePatterns, exclude)
 	}
 
-	var mismatchs []string
+	mismatchs := make(map[string]any)
 
 	fmt.Printf("%d table(s) going to be compared. ", len(srcTables))
 	tableNames := make([]string, 0, len(srcTables))
@@ -87,7 +87,7 @@ tableLoop:
 			}
 			if c1 != c2 {
 				fmt.Printf("number of rows did not match for %q(%d, %d)\n", v.TableName, c1, c2)
-				mismatchs = append(mismatchs, v.TableName)
+				mismatchs[v.TableName] = struct{}{}
 				continue
 			} else if c1 == 0 {
 				continue
@@ -148,7 +148,7 @@ tableLoop:
 			}
 
 			if srcCheksum != dstChecksum {
-				mismatchs = append(mismatchs, v.TableName)
+				mismatchs[v.TableName] = struct{}{}
 
 				// if verbose flag is set, we print the diff by scanning rows one by one
 				if opts.Verbose {
@@ -228,5 +228,10 @@ tableLoop:
 		}
 	}
 
-	return mismatchs, nil
+	tables := make([]string, 0, len(mismatchs))
+	for table := range mismatchs {
+		tables = append(tables, table)
+	}
+
+	return tables, nil
 }
