@@ -1,7 +1,7 @@
 .PHONY: test run-databases stop-databases
 
 test: run-databases
-	go test -v -cover ./...
+	go test -v -cover -count=1 ./...
 
 run-databases:
 	@echo Starting docker containers

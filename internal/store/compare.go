@@ -2,7 +2,9 @@ package store
 
 import (
 	"fmt"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -72,17 +74,19 @@ tableLoop:
 			return nil, fmt.Errorf("%q table is not found in dst schema", k)
 		}
 
+		var c1, c2 int
 		if !opts.SkipCount {
 			// we do a count comparison to save some resources before diving deeper
-			c1, err := srcdb.count(v)
+			c1, err = srcdb.count(v)
 			if err != nil {
 				return nil, fmt.Errorf("could not count rows of %q: %w", v.TableName, err)
 			}
-			c2, err := dstdb.count(v2)
+			c2, err = dstdb.count(v2)
 			if err != nil {
 				return nil, fmt.Errorf("could not count rows of %q: %w", v2.TableName, err)
 			}
 			if c1 != c2 {
+				fmt.Printf("number of rows did not match for %q(%d, %d)\n", v.TableName, c1, c2)
 				mismatchs = append(mismatchs, v.TableName)
 				continue
 			} else if c1 == 0 {
@@ -105,6 +109,7 @@ tableLoop:
 			if cd2.cursors == nil {
 				cd2.limit = remaining
 			}
+
 			// we need to save the previous cursors as they are automatically updated
 			// by the checksum query.
 			prevCd1 := cursorData{
@@ -114,14 +119,32 @@ tableLoop:
 				cursors: cd2.cursors,
 			}
 
-			srcCheksum, cd1, err = srcdb.checksum(v, cd1)
-			if err != nil {
-				return nil, fmt.Errorf("could not compute src checksum: %w", err)
+			var errSrc, errDst error
+			wg := sync.WaitGroup{}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				srcCheksum, cd1, errSrc = srcdb.checksum(v, cd1)
+			}()
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				dstChecksum, cd2, errDst = dstdb.checksum(v2, cd2)
+			}()
+			wg.Wait()
+
+			if errSrc != nil && cd1.limit == 0 {
+				break
+			} else if errSrc != nil {
+				return nil, fmt.Errorf("could not compute src checksums: %w", errSrc)
 			}
 
-			dstChecksum, cd2, err = dstdb.checksum(v2, cd2)
-			if err != nil {
-				return nil, fmt.Errorf("could not compute dst checksum: %w", err)
+			if errDst != nil && cd2.limit == 0 {
+				break
+			} else if errDst != nil {
+				return nil, fmt.Errorf("could not compute dst checksums: %w", errDst)
 			}
 
 			if srcCheksum != dstChecksum {
@@ -133,59 +156,51 @@ tableLoop:
 					for i := 0; i < remaining; i++ {
 						// we still need to use checksum methodology to have
 						// consistency on the comparison.
-						srcCheksum, prevCd1, err = srcdb.checksum(v, cursorData{
-							cursors: prevCd1.cursors,
-							limit:   1,
-						})
-						if err != nil {
-							return nil, fmt.Errorf("could not compute src checksum: %w", err)
+						wg2 := sync.WaitGroup{}
+
+						wg2.Add(1)
+						go func() {
+							defer wg2.Done()
+							srcCheksum, prevCd1, errSrc = srcdb.checksum(v, cursorData{
+								cursors: slices.Clone(prevCd1.cursors),
+								limit:   1,
+							})
+						}()
+
+						wg2.Add(1)
+						go func() {
+							defer wg2.Done()
+							dstChecksum, prevCd2, errDst = dstdb.checksum(v2, cursorData{
+								cursors: slices.Clone(prevCd2.cursors),
+								limit:   1,
+							})
+						}()
+						wg2.Wait()
+
+						if errSrc != nil && prevCd1.limit == 0 {
+							fmt.Println("reached end of the batch")
+							break rowLoop
+						} else if errSrc != nil {
+							return nil, fmt.Errorf("could not compute src checksum on single row: %w", errSrc)
 						}
 
-						dstChecksum, prevCd2, err = dstdb.checksum(v2, cursorData{
-							cursors: prevCd2.cursors,
-							limit:   1,
-						})
-						if err != nil {
-							return nil, fmt.Errorf("could not compute dst checksum: %w", err)
+						if errDst != nil && prevCd2.limit == 0 {
+							fmt.Println("reached end of the batch")
+							break rowLoop
+						} else if errDst != nil {
+							return nil, fmt.Errorf("could not compute dst checksum on single row: %w", errDst)
 						}
 
 						if srcCheksum == dstChecksum {
-							continue
+							continue rowLoop
 						}
 
-						srcRow, err := srcdb.GetRow(v, prevCd1, i)
-						if err != nil {
-							return nil, fmt.Errorf("could not get src row: %w", err)
+						// we only print the primary keys if two rows differ
+						t := "Row differs: "
+						for i := range prevCd1.cursors {
+							t += fmt.Sprintf("%s: %s ", v.PrimaryKeys[i], prevCd1.cursors[i])
 						}
-
-						dstRow, err := dstdb.GetRow(v2, prevCd2, i)
-						if err != nil {
-							return nil, fmt.Errorf("could not get dst row: %w", err)
-						}
-
-						var pkDiffer bool
-						for _, pk := range v.PrimaryKeys {
-							if srcRow[pk] != dstRow[pk] {
-								pkDiffer = true
-							}
-						}
-
-						// there is a chance that the primary keys are different
-						// which means the rows are different, this is rare but possible
-						if pkDiffer {
-							t := "Row differs in primary keys: "
-							for _, pk := range v.PrimaryKeys {
-								t += fmt.Sprintf("%s: src=%v dst=%v ", pk, srcRow[strings.ToLower(pk)], dstRow[strings.ToLower(pk)])
-							}
-							fmt.Println(strings.TrimSpace(t))
-						} else {
-							// we only print the primary keys if two rows differ
-							t := "Row differs: "
-							for _, pk := range v.PrimaryKeys {
-								t += fmt.Sprintf("%s: src=%v dst=%v ", pk, srcRow[strings.ToLower(pk)], dstRow[strings.ToLower(pk)])
-							}
-							fmt.Println(strings.TrimSpace(t))
-						}
+						fmt.Println(strings.TrimSpace(t))
 
 						if opts.FailFast {
 							break rowLoop
@@ -193,7 +208,9 @@ tableLoop:
 					}
 				}
 
-				continue tableLoop
+				if opts.FailFast {
+					break tableLoop
+				}
 			}
 
 			if cd1.limit != cd2.limit {
@@ -205,16 +222,10 @@ tableLoop:
 			elapsed := time.Since(start)
 			// report progress every minute
 			if elapsed > time.Minute {
-				// fmt.Printf("Table progress: %.0f%%\n", math.Round(float64(opts.PageSize*loopCount)/float64(c1))*100)
 				fmt.Printf("Number of rows processed: %d\n", opts.PageSize*loopCount)
 				start = time.Now() // reset the start time
 			}
-
-			if opts.FailFast {
-				break tableLoop
-			}
 		}
-
 	}
 
 	return mismatchs, nil

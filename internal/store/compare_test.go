@@ -58,6 +58,19 @@ func TestCompare(t *testing.T) {
 		require.Empty(t, mismatches)
 	})
 
+	t.Run("Compare databases with higher page size", func(t *testing.T) {
+		ec := rand.Intn(100)
+		h := newTestHelper(t).SeedTableData(ec)
+		defer h.Teardown()
+
+		mismatches, err := Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
+			PageSize: 1000,
+			Verbose:  true,
+		})
+		require.NoError(t, err)
+		require.Empty(t, mismatches)
+	})
+
 	t.Run("Compare databases when there is data change", func(t *testing.T) {
 		ec := rand.Intn(100) + 20 // we add 20 to ensure pagination gets triggered
 		h := newTestHelper(t).SeedTableData(ec)
@@ -85,7 +98,7 @@ func TestCompare(t *testing.T) {
 		require.NoError(t, err)
 
 		mismatches, err = Compare(pgsqlTestDSN, mysqlTestDSN, CompareOptions{
-			PageSize: 5,
+			PageSize: 20,
 			Verbose:  true,
 		})
 		require.NoError(t, err)

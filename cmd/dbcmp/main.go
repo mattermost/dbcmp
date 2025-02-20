@@ -75,6 +75,11 @@ func runRootCmdFn(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	skipCount, err := cmd.Flags().GetBool("skip-count")
+	if err != nil {
+		return err
+	}
+
 	if pageSize < 2 {
 		return fmt.Errorf("page size could not be less than 2 (two), current value is: %d", pageSize)
 	}
@@ -85,6 +90,7 @@ func runRootCmdFn(cmd *cobra.Command, args []string) error {
 		PageSize:        pageSize,
 		FailFast:        failFast,
 		Verbose:         verbose,
+		SkipCount:       skipCount,
 	})
 	if err != nil {
 		return fmt.Errorf("error during comparison: %w", err)
