@@ -96,7 +96,7 @@ tableLoop:
 
 		remaining := opts.PageSize
 		var cd1, cd2 cursorData
-		var srcCheksum, dstChecksum string
+		var srcChecksum, dstChecksum string
 
 		start := time.Now()
 		var loopCount int
@@ -125,7 +125,7 @@ tableLoop:
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				srcCheksum, cd1, errSrc = srcdb.checksum(v, cd1)
+				srcChecksum, cd1, errSrc = srcdb.checksum(v, cd1)
 			}()
 
 			wg.Add(1)
@@ -147,7 +147,7 @@ tableLoop:
 				return nil, fmt.Errorf("could not compute dst checksums: %w", errDst)
 			}
 
-			if srcCheksum != dstChecksum {
+			if srcChecksum != dstChecksum {
 				mismatchs[v.TableName] = struct{}{}
 
 				// if verbose flag is set, we print the diff by scanning rows one by one
@@ -161,7 +161,7 @@ tableLoop:
 						wg2.Add(1)
 						go func() {
 							defer wg2.Done()
-							srcCheksum, prevCd1, errSrc = srcdb.checksum(v, cursorData{
+							srcChecksum, prevCd1, errSrc = srcdb.checksum(v, cursorData{
 								cursors: slices.Clone(prevCd1.cursors),
 								limit:   1,
 							})
@@ -191,7 +191,7 @@ tableLoop:
 							return nil, fmt.Errorf("could not compute dst checksum on single row: %w", errDst)
 						}
 
-						if srcCheksum == dstChecksum {
+						if srcChecksum == dstChecksum {
 							continue rowLoop
 						}
 
