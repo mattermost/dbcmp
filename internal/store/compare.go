@@ -57,7 +57,7 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 		srcTables = filterMap(srcTables, opts.ExcludePatterns, exclude)
 	}
 
-	mismatchs := make(map[string]any)
+	mismatches := make(map[string]any)
 
 	fmt.Printf("%d table(s) going to be compared. ", len(srcTables))
 	tableNames := make([]string, 0, len(srcTables))
@@ -87,7 +87,7 @@ tableLoop:
 			}
 			if c1 != c2 {
 				fmt.Printf("number of rows did not match for %q(%d, %d)\n", v.TableName, c1, c2)
-				mismatchs[v.TableName] = struct{}{}
+				mismatches[v.TableName] = struct{}{}
 				continue
 			} else if c1 == 0 {
 				continue
@@ -148,11 +148,10 @@ tableLoop:
 			}
 
 			if srcChecksum != dstChecksum {
-				mismatchs[v.TableName] = struct{}{}
+				mismatches[v.TableName] = struct{}{}
 
 				// if verbose flag is set, we print the diff by scanning rows one by one
 				if opts.Verbose {
-				rowLoop:
 					for i := 0; i < remaining; i++ {
 						// we still need to use checksum methodology to have
 						// consistency on the comparison.
@@ -179,20 +178,18 @@ tableLoop:
 
 						if errSrc != nil && prevCd1.limit == 0 {
 							fmt.Println("reached end of the batch")
-							break rowLoop
 						} else if errSrc != nil {
 							return nil, fmt.Errorf("could not compute src checksum on single row: %w", errSrc)
 						}
 
 						if errDst != nil && prevCd2.limit == 0 {
 							fmt.Println("reached end of the batch")
-							break rowLoop
 						} else if errDst != nil {
 							return nil, fmt.Errorf("could not compute dst checksum on single row: %w", errDst)
 						}
 
 						if srcChecksum == dstChecksum {
-							continue rowLoop
+							continue
 						}
 
 						// we only print the primary keys if two rows differ
@@ -203,7 +200,7 @@ tableLoop:
 						fmt.Println(strings.TrimSpace(t))
 
 						if opts.FailFast {
-							break rowLoop
+							break
 						}
 					}
 				}
@@ -228,8 +225,8 @@ tableLoop:
 		}
 	}
 
-	tables := make([]string, 0, len(mismatchs))
-	for table := range mismatchs {
+	tables := make([]string, 0, len(mismatches))
+	for table := range mismatches {
 		tables = append(tables, table)
 	}
 
