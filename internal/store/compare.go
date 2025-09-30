@@ -2,7 +2,10 @@ package store
 
 import (
 	"fmt"
+	"slices"
 	"strings"
+	"sync"
+	"time"
 )
 
 type CompareOptions struct {
@@ -10,6 +13,8 @@ type CompareOptions struct {
 	IncludePatterns []string
 	Verbose         bool
 	PageSize        int
+	FailFast        bool
+	SkipCount       bool
 }
 
 func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
@@ -52,56 +57,157 @@ func Compare(srcDSN, dstDSN string, opts CompareOptions) ([]string, error) {
 		srcTables = filterMap(srcTables, opts.ExcludePatterns, exclude)
 	}
 
-	var mismatchs []string
+	mismatches := make(map[string]any)
+
+	fmt.Printf("%d table(s) going to be compared. ", len(srcTables))
+	tableNames := make([]string, 0, len(srcTables))
+	for _, v := range srcTables {
+		tableNames = append(tableNames, v.TableName)
+	}
+	fmt.Printf("{%q}\n", strings.Join(tableNames, ", "))
 
 tableLoop:
 	for k, v := range srcTables {
+		fmt.Printf("Comparing %q(%s) with %q(%s)\n", v.TableName, srcdb.dbType, k, dstdb.dbType)
 		v2, ok := dstTables[strings.ToLower(k)]
 		if !ok {
 			return nil, fmt.Errorf("%q table is not found in dst schema", k)
 		}
 
-		// we do a count comparison to save some resources before diving deeper
-		c1, err := srcdb.count(v)
-		if err != nil {
-			return nil, fmt.Errorf("could not count rows of %q: %w", v.TableName, err)
-		}
-		c2, err := dstdb.count(v2)
-		if err != nil {
-			return nil, fmt.Errorf("could not count rows of %q: %w", v2.TableName, err)
-		}
-		if c1 != c2 {
-			mismatchs = append(mismatchs, v.TableName)
-			continue
-		} else if c1 == 0 {
-			continue
+		var c1, c2 int
+		if !opts.SkipCount {
+			// we do a count comparison to save some resources before diving deeper
+			c1, err = srcdb.count(v)
+			if err != nil {
+				return nil, fmt.Errorf("could not count rows of %q: %w", v.TableName, err)
+			}
+			c2, err = dstdb.count(v2)
+			if err != nil {
+				return nil, fmt.Errorf("could not count rows of %q: %w", v2.TableName, err)
+			}
+			if c1 != c2 {
+				fmt.Printf("number of rows did not match for %q(%d, %d)\n", v.TableName, c1, c2)
+				mismatches[v.TableName] = struct{}{}
+				continue
+			} else if c1 == 0 {
+				continue
+			}
 		}
 
 		remaining := opts.PageSize
 		var cd1, cd2 cursorData
-		var srcCheksum, dstChecksum string
+		var srcChecksum, dstChecksum string
 
+		start := time.Now()
+		var loopCount int
 		// loop until no remaining rows left to calculate checksum
 		for remaining > 0 {
+			loopCount++
 			if cd1.cursors == nil {
 				cd1.limit = remaining
 			}
 			if cd2.cursors == nil {
 				cd2.limit = remaining
 			}
-			srcCheksum, cd1, err = srcdb.checksum(v, cd1)
-			if err != nil {
-				return nil, fmt.Errorf("could not compute src checksum: %w", err)
+
+			// we need to save the previous cursors as they are automatically updated
+			// by the checksum query.
+			prevCd1 := cursorData{
+				cursors: cd1.cursors,
+			}
+			prevCd2 := cursorData{
+				cursors: cd2.cursors,
 			}
 
-			dstChecksum, cd2, err = dstdb.checksum(v2, cd2)
-			if err != nil {
-				return nil, fmt.Errorf("could not compute dst checksum: %w", err)
+			var errSrc, errDst error
+			wg := sync.WaitGroup{}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				srcChecksum, cd1, errSrc = srcdb.checksum(v, cd1)
+			}()
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				dstChecksum, cd2, errDst = dstdb.checksum(v2, cd2)
+			}()
+			wg.Wait()
+
+			if errSrc != nil && cd1.limit == 0 {
+				break
+			} else if errSrc != nil {
+				return nil, fmt.Errorf("could not compute src checksums: %w", errSrc)
 			}
 
-			if srcCheksum != dstChecksum {
-				mismatchs = append(mismatchs, v.TableName)
-				continue tableLoop
+			if errDst != nil && cd2.limit == 0 {
+				break
+			} else if errDst != nil {
+				return nil, fmt.Errorf("could not compute dst checksums: %w", errDst)
+			}
+
+			if srcChecksum != dstChecksum {
+				mismatches[v.TableName] = struct{}{}
+
+				// if verbose flag is set, we print the diff by scanning rows one by one
+				if opts.Verbose {
+					for i := 0; i < remaining; i++ {
+						// we still need to use checksum methodology to have
+						// consistency on the comparison.
+						wg2 := sync.WaitGroup{}
+
+						wg2.Add(1)
+						go func() {
+							defer wg2.Done()
+							srcChecksum, prevCd1, errSrc = srcdb.checksum(v, cursorData{
+								cursors: slices.Clone(prevCd1.cursors),
+								limit:   1,
+							})
+						}()
+
+						wg2.Add(1)
+						go func() {
+							defer wg2.Done()
+							dstChecksum, prevCd2, errDst = dstdb.checksum(v2, cursorData{
+								cursors: slices.Clone(prevCd2.cursors),
+								limit:   1,
+							})
+						}()
+						wg2.Wait()
+
+						if errSrc != nil && prevCd1.limit == 0 {
+							fmt.Println("reached end of the batch")
+						} else if errSrc != nil {
+							return nil, fmt.Errorf("could not compute src checksum on single row: %w", errSrc)
+						}
+
+						if errDst != nil && prevCd2.limit == 0 {
+							fmt.Println("reached end of the batch")
+						} else if errDst != nil {
+							return nil, fmt.Errorf("could not compute dst checksum on single row: %w", errDst)
+						}
+
+						if srcChecksum == dstChecksum {
+							continue
+						}
+
+						// we only print the primary keys if two rows differ
+						t := "Row differs: "
+						for i := range prevCd1.cursors {
+							t += fmt.Sprintf("%s: %s ", v.PrimaryKeys[i], prevCd1.cursors[i])
+						}
+						fmt.Println(strings.TrimSpace(t))
+
+						if opts.FailFast {
+							break
+						}
+					}
+				}
+
+				if opts.FailFast {
+					break tableLoop
+				}
 			}
 
 			if cd1.limit != cd2.limit {
@@ -109,9 +215,20 @@ tableLoop:
 			}
 
 			remaining = cd1.limit
-		}
 
+			elapsed := time.Since(start)
+			// report progress every minute
+			if elapsed > time.Minute {
+				fmt.Printf("Number of rows processed: %d\n", opts.PageSize*loopCount)
+				start = time.Now() // reset the start time
+			}
+		}
 	}
 
-	return mismatchs, nil
+	tables := make([]string, 0, len(mismatches))
+	for table := range mismatches {
+		tables = append(tables, table)
+	}
+
+	return tables, nil
 }

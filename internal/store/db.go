@@ -51,7 +51,6 @@ func NewDB(dsn string) (*DB, error) {
 	dbType := DatabaseDriverMysql
 	if strings.HasPrefix(dsn, "postgres") {
 		dbType = DatabaseDriverPostgres
-
 	}
 
 	newDsn, err := normalizeDSN(dsn)
@@ -64,10 +63,12 @@ func NewDB(dsn string) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{
+	v := &DB{
 		sqlDB:  db,
 		dbType: dbType,
-	}, nil
+	}
+
+	return v, nil
 }
 
 func (db *DB) Close() error {
@@ -145,9 +146,10 @@ func (db *DB) dataTypes(table string) ([]*ColumnInfo, error) {
 		return nil, err
 	}
 
-	if db.dbType == DatabaseDriverMysql {
+	switch db.dbType {
+	case DatabaseDriverMysql:
 		query += " AND table_schema = Database()"
-	} else if db.dbType == DatabaseDriverPostgres {
+	case DatabaseDriverPostgres:
 		query += " AND table_schema = CURRENT_SCHEMA()"
 	}
 
